@@ -8,12 +8,13 @@
 <div id="app">
     <p>Начните вводить номер телефона: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-telephone-fill" viewBox="0 0 16 16">
         <path fill-rule="evenodd" d="M1.885.511a1.745 1.745 0 0 1 2.61.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.678.678 0 0 0 .178.643l2.457 2.457a.678.678 0 0 0 .644.178l2.189-.547a1.745 1.745 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.634 18.634 0 0 1-7.01-4.42 18.634 18.634 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877L1.885.511z"/>
-    </svg> <input type="tel" v-model="phone" @keyup="get_country"></p>
-    <p v-if="answer.code != null">Телефонный код: {{ answer.code }}</p>
-    <figure v-for="caption in this.answer.caption" v-if="caption.iso_code != null && caption.iso_code !== '—'">
-        <img class="flag" align="center" :src="'https://www.countryflags.io/' + caption.iso_code + '/flat/64.png'">
-        <figcaption>    {{ caption.iso_code }} ({{ caption.name }})    </figcaption>
-    </figure>
+    </svg> <input type="tel" v-model="phone" @keyup="get_country($event)"></p>
+    <div class="cntrs">
+        <figure v-for="cntr in this.answer" v-if="cntr.iso_code != null && cntr.iso_code !== '—'">
+            <img class="flag" :src="'https://www.countryflags.io/' + cntr.iso_code + '/flat/64.png'">
+            <figcaption>    {{ cntr.iso_code }} ({{ cntr.cntr_name }})    </figcaption>
+        </figure>
+    </div>
 
 </div>
 </body>
@@ -24,31 +25,36 @@
         el: '#app',
         data: {
             phone: "",
-            answer: {}
+            answer: [{}]
         },
         methods:{
-            get_country: async function (){
-                if (this.phone !== "" && this.phone !== "+") {
-
-                    await axios.get(`${document.URL}/get_country/${this.phone}`)
+            get_country: async function (evt){
+                if (this.phone[0] !== "+" && this.phone.length > 0){
+                    this.phone = "+" + this.phone;
+                }
+                let phone = this.phone.replace(/\s+/g, '');
+                let validKey = false;
+                evt = (evt) ? evt : window.event;
+                var charCode = (evt.which) ? evt.which : evt.keyCode;
+                if ((charCode > 31 && (charCode < 48 || charCode > 57)) && charCode !== 46) {
+                    evt.preventDefault();;
+                } else {
+                    validKey = true;
+                }
+                if (validKey && phone !== "" && phone !== "+" && phone[0] === "+") {
+                    await axios.get(`${document.URL}/get_country/${phone}`)
                         .then(response => (this.answer = response.data));
-                    if (this.answer.length > 0) {
-                        this.answer = this.answer[0];
+                    this.phone = phone;
+                    if (this.answer[0].code !== null && this.phone.length !== this.answer[0].code.length){
+                        phone = phone.slice(0, this.answer[0].code.length) + " " + phone.slice(this.answer[0].code.length);
                     }
-                    if (this.answer.iso_code != null){
-                        let iso_codes = this.answer.iso_code.split(',');
-                        let cntr_names = this.answer.cntr_name.split(',');
-                        this.answer.caption = [];
-                        if (iso_codes.length === cntr_names.length) {
-                            for (const index in iso_codes) {
-                                this.answer.caption.push({
-                                    iso_code: iso_codes[index],
-                                    name: cntr_names[index]
-                                });
-                            }
-                        }
+                    if (this.answer[0].base_code !== null && this.phone.length > this.answer[0].base_code.length && this.answer[0].base_code !== this.answer[0].code){
+                        phone = phone.slice(0, this.answer[0].base_code.length) + " " + phone.slice(this.answer[0].base_code.length);
                     }
-
+                    this.phone = phone;
+                }
+                else if (validKey){
+                    this.answer = [];
                 }
                 return 0
             }
@@ -64,6 +70,12 @@
     }
     *{
         text-align: center;
+    }
+    .cntrs{
+        text-align: left;
+    }
+    figure{
+        width: 200px;
     }
 </style>
 </html>
